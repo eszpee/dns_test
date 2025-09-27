@@ -1,60 +1,61 @@
 #!/usr/bin/env node
 
-const { exec } = require('child_process');
-const fs = require('fs');
-const yaml = require('js-yaml');
-const util = require('util');
+const { exec } = require("child_process");
+const fs = require("fs");
+const yaml = require("js-yaml");
+const util = require("util");
 const execPromise = util.promisify(exec);
 
 // Check if DNS server IP(s) are provided
 if (process.argv.length < 3) {
-  console.log(`Usage: ${process.argv[1]} <dns_server_ip1> [dns_server_ip2] [dns_server_ip3] ...`);
+  console.log(
+    `Usage: ${process.argv[1]} <dns_server_ip1> [dns_server_ip2] [dns_server_ip3] ...`,
+  );
   process.exit(1);
 }
 
 const DNS_SERVERS = process.argv.slice(2);
-const YAML_FILE = 'test_suite.yaml';
+const YAML_FILE = "test_suite.yaml";
 
 // Sleep function to add delay between requests
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Progress bar display with current domain
-function displayProgress(current, total, groupName, currentDomain = '') {
+function displayProgress(current, total, groupName, currentDomain = "") {
   const percentage = Math.round((current / total) * 100);
   const barLength = 30;
   const filledLength = Math.round((current / total) * barLength);
-  const bar = '█'.repeat(filledLength) + '░'.repeat(barLength - filledLength);
+  const bar = "█".repeat(filledLength) + "░".repeat(barLength - filledLength);
 
   let progressLine = `${groupName}: [${bar}] ${percentage}% (${current}/${total})`;
-  let domainLine = currentDomain ? `Testing: ${currentDomain}` : '';
+  let domainLine = currentDomain ? `Testing: ${currentDomain}` : "";
 
   // Clear previous lines and write new ones
-  process.stdout.write('\r\x1b[K'); // Clear current line
+  process.stdout.write("\r\x1b[K"); // Clear current line
   if (domainLine) {
-    process.stdout.write('\x1b[1A\x1b[K'); // Move up and clear line above
+    process.stdout.write("\x1b[1A\x1b[K"); // Move up and clear line above
   }
 
   process.stdout.write(progressLine);
   if (domainLine) {
-    process.stdout.write('\n' + domainLine);
+    process.stdout.write("\n" + domainLine);
   }
 }
-
 
 // Validate IP address format
 function isValidIP(ip) {
   const ipPattern = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
   const match = ip.match(ipPattern);
-  
+
   if (!match) return false;
-  
+
   for (let i = 1; i <= 4; i++) {
     const octet = parseInt(match[i], 10);
     if (octet < 0 || octet > 255) return false;
   }
-  
+
   return true;
 }
 
@@ -72,16 +73,14 @@ for (const dnsServer of DNS_SERVERS) {
   }
 }
 
-
-
-
-
 // Run DNS lookup test and measure time
 async function testDomain(domain, group, dnsServer, resultsFile) {
   const startTime = process.hrtime();
 
   try {
-    const { stdout, stderr } = await execPromise(`dig +short +time=2 +tries=1 @${dnsServer} ${domain}`);
+    const { stdout, stderr } = await execPromise(
+      `dig +short +time=3 +tries=3 +dnssec +nocache @${dnsServer} ${domain}`,
+    );
     const result = stdout.trim();
 
     const endTime = process.hrtime(startTime);
@@ -89,16 +88,19 @@ async function testDomain(domain, group, dnsServer, resultsFile) {
 
     // Check if domain resolved - reverse logic for invalid domains
     let status;
-    if (group === 'invalid') {
+    if (group === "invalid") {
       // For invalid domains: success if it doesn't resolve, failure if it does
-      status = result ? 'FAILED' : 'OK';
+      status = result ? "FAILED" : "OK";
     } else {
       // For normal domains: success if it resolves, failure if it doesn't
-      status = result ? 'OK' : 'FAILED';
+      status = result ? "OK" : "FAILED";
     }
 
     // Log result to CSV
-    fs.appendFileSync(resultsFile, `${group},${domain},${responseTime.toFixed(6)},${status},"${result}"\n`);
+    fs.appendFileSync(
+      resultsFile,
+      `${group},${domain},${responseTime.toFixed(6)},${status},"${result}"\n`,
+    );
 
     // Don't display individual results during testing to keep progress bar clean
     // Results will be shown in the summary
@@ -109,10 +111,13 @@ async function testDomain(domain, group, dnsServer, resultsFile) {
     const responseTime = endTime[0] + endTime[1] / 1e9;
 
     // For errors, treat as success for invalid domains since they failed to resolve
-    const status = group === 'invalid' ? 'OK' : 'ERROR';
+    const status = group === "invalid" ? "OK" : "ERROR";
 
     // Log error result
-    fs.appendFileSync(resultsFile, `${group},${domain},${responseTime.toFixed(6)},${status},"${error.message}"\n`);
+    fs.appendFileSync(
+      resultsFile,
+      `${group},${domain},${responseTime.toFixed(6)},${status},"${error.message}"\n`,
+    );
     // Don't display individual results during testing to keep progress bar clean
 
     return { domain, responseTime, status, result: error.message };
@@ -142,7 +147,7 @@ async function testGroup(group, domains, dnsServer, resultsFile) {
 
   // Complete the progress bar and clear domain line
   displayProgress(domains.length, domains.length, group);
-  process.stdout.write('\r\x1b[K'); // Clear the domain line
+  process.stdout.write("\r\x1b[K"); // Clear the domain line
   console.log(); // New line after progress bar
 
   return results;
@@ -161,16 +166,16 @@ function calculatePercentile(sortedArray, percentile) {
 
 // Generate summary statistics
 function generateSummary(allResults, dnsServer, summaryFile) {
-  console.log('\nGenerating summary statistics...');
+  console.log("\nGenerating summary statistics...");
 
   let summaryContent = `DNS Server: ${dnsServer}\n`;
   summaryContent += `Test Date: ${new Date().toLocaleString()}\n\n`;
-  summaryContent += 'Group Statistics:\n';
+  summaryContent += "Group Statistics:\n";
 
   // Calculate statistics by group
   const groups = {};
   const failures = {};
-  allResults.forEach(result => {
+  allResults.forEach((result) => {
     if (!groups[result.group]) {
       groups[result.group] = {
         count: 0,
@@ -178,7 +183,7 @@ function generateSummary(allResults, dnsServer, summaryFile) {
         min: Infinity,
         max: 0,
         success: 0,
-        responseTimes: []
+        responseTimes: [],
       };
       failures[result.group] = [];
     }
@@ -190,7 +195,7 @@ function generateSummary(allResults, dnsServer, summaryFile) {
     group.max = Math.max(group.max, result.responseTime);
     group.responseTimes.push(result.responseTime);
 
-    if (result.status === 'OK') {
+    if (result.status === "OK") {
       group.success++;
     } else {
       failures[result.group].push(result.domain);
@@ -216,13 +221,13 @@ function generateSummary(allResults, dnsServer, summaryFile) {
 
     // List failures if any
     if (failures[groupName].length > 0) {
-      summaryContent += `  Failed domains: ${failures[groupName].join(', ')}\n`;
+      summaryContent += `  Failed domains: ${failures[groupName].join(", ")}\n`;
     }
-    summaryContent += '\n';
+    summaryContent += "\n";
   }
 
   // Calculate overall statistics
-  const allTimes = allResults.map(r => r.responseTime);
+  const allTimes = allResults.map((r) => r.responseTime);
   const sortedAllTimes = allTimes.sort((a, b) => a - b);
   const overallMedian = calculatePercentile(sortedAllTimes, 50);
   const overallP95 = calculatePercentile(sortedAllTimes, 95);
@@ -233,11 +238,11 @@ function generateSummary(allResults, dnsServer, summaryFile) {
     total: allResults.reduce((sum, r) => sum + r.responseTime, 0),
     min: Math.min(...allTimes),
     max: Math.max(...allTimes),
-    success: allResults.filter(r => r.status === 'OK').length
+    success: allResults.filter((r) => r.status === "OK").length,
   };
 
   // Add overall stats to summary
-  summaryContent += 'Overall Statistics:\n';
+  summaryContent += "Overall Statistics:\n";
   summaryContent += `  Domains tested: ${overall.count}\n`;
   summaryContent += `  Success rate: ${((overall.success / overall.count) * 100).toFixed(1)}%\n`;
   summaryContent += `  Mean response time: ${(overall.total / overall.count).toFixed(3)} sec\n`;
@@ -248,10 +253,10 @@ function generateSummary(allResults, dnsServer, summaryFile) {
   summaryContent += `  99th percentile: ${overallP99.toFixed(3)} sec\n`;
 
   // List all failures
-  const allFailures = allResults.filter(r => r.status !== 'OK');
+  const allFailures = allResults.filter((r) => r.status !== "OK");
   if (allFailures.length > 0) {
-    summaryContent += '\nAll Failed Domains:\n';
-    allFailures.forEach(failure => {
+    summaryContent += "\nAll Failed Domains:\n";
+    allFailures.forEach((failure) => {
       summaryContent += `  ${failure.group}/${failure.domain}: ${failure.status}\n`;
     });
   }
@@ -269,7 +274,7 @@ async function testSingleDnsServer(dnsServer, testSuite) {
   console.log(`\nStarting DNS tests with server ${dnsServer}`);
 
   // Initialize results file
-  fs.writeFileSync(RESULTS_FILE, 'group,domain,response_time,status,result\n');
+  fs.writeFileSync(RESULTS_FILE, "group,domain,response_time,status,result\n");
 
   console.log(`Testing directly against DNS server: ${dnsServer}`);
 
@@ -277,10 +282,15 @@ async function testSingleDnsServer(dnsServer, testSuite) {
   const allResults = [];
 
   for (const [group, domains] of Object.entries(testSuite.test_groups)) {
-    const groupResults = await testGroup(group, domains, dnsServer, RESULTS_FILE);
+    const groupResults = await testGroup(
+      group,
+      domains,
+      dnsServer,
+      RESULTS_FILE,
+    );
 
     // Add group name to results
-    groupResults.forEach(result => {
+    groupResults.forEach((result) => {
       result.group = group;
       allResults.push(result);
     });
@@ -289,18 +299,22 @@ async function testSingleDnsServer(dnsServer, testSuite) {
   // Generate summary
   generateSummary(allResults, dnsServer, SUMMARY_FILE);
 
-  console.log(`\nTesting completed for ${dnsServer}. Results saved to ${RESULTS_FILE} and ${SUMMARY_FILE}`);
+  console.log(
+    `\nTesting completed for ${dnsServer}. Results saved to ${RESULTS_FILE} and ${SUMMARY_FILE}`,
+  );
 
   return { resultsFile: RESULTS_FILE, summaryFile: SUMMARY_FILE };
 }
 
 // Main execution
 async function main() {
-  console.log(`Starting DNS tests with ${DNS_SERVERS.length} server(s): ${DNS_SERVERS.join(', ')}`);
+  console.log(
+    `Starting DNS tests with ${DNS_SERVERS.length} server(s): ${DNS_SERVERS.join(", ")}`,
+  );
 
   try {
     // Load test suite
-    const testSuite = yaml.load(fs.readFileSync(YAML_FILE, 'utf8'));
+    const testSuite = yaml.load(fs.readFileSync(YAML_FILE, "utf8"));
 
     const allFiles = [];
 
@@ -312,26 +326,27 @@ async function main() {
 
     // If multiple servers were tested, run comparison
     if (DNS_SERVERS.length > 1) {
-      console.log('\n' + '='.repeat(60));
-      console.log('Running comparison between DNS servers...');
-      console.log('='.repeat(60));
+      console.log("\n" + "=".repeat(60));
+      console.log("Running comparison between DNS servers...");
+      console.log("=".repeat(60));
 
       try {
-        const { stdout, stderr } = await execPromise('./compare_results.js');
+        const { stdout, stderr } = await execPromise("./compare_results.js");
         console.log(stdout);
         if (stderr) {
           console.error(stderr);
         }
       } catch (error) {
-        console.error('Error running comparison script:', error.message);
-        console.log('You can manually run the comparison with: ./compare_results.js');
+        console.error("Error running comparison script:", error.message);
+        console.log(
+          "You can manually run the comparison with: ./compare_results.js",
+        );
       }
     }
 
-    console.log('\nAll DNS testing completed!');
-
+    console.log("\nAll DNS testing completed!");
   } catch (error) {
-    console.error('Error running DNS tests:', error.message);
+    console.error("Error running DNS tests:", error.message);
     process.exit(1);
   }
 }
