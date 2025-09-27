@@ -1,0 +1,14 @@
+{
+  "name": "dnstest",
+  "version": "1.0.0",
+  "description": "DNS server performance testing suite",
+  "main": "dns_test.js",
+  "scripts": {
+    "test": "node dns_test.js"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "author": "",
+  "license": "MIT"
+}
