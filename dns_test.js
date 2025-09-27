@@ -306,11 +306,58 @@ async function testSingleDnsServer(dnsServer, testSuite) {
   return { resultsFile: RESULTS_FILE, summaryFile: SUMMARY_FILE };
 }
 
+// Function to prompt user for cleanup
+async function promptCleanup() {
+  const readline = require('readline');
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise((resolve) => {
+    rl.question('Delete previous test results? (y/N): ', (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
+}
+
+// Function to delete previous test results
+async function deletePreviousResults() {
+  try {
+    const { stdout } = await execPromise('find . -maxdepth 1 -name "*.txt" -o -name "*.csv" | head -20');
+    const files = stdout.trim().split('\n').filter(f => f && f !== '.');
+
+    if (files.length === 0) {
+      console.log('No previous test result files found.');
+      return;
+    }
+
+    console.log(`Found ${files.length} previous test result files:`);
+    files.forEach(file => console.log(`  ${file}`));
+
+    for (const file of files) {
+      fs.unlinkSync(file);
+    }
+
+    console.log('Previous test results deleted successfully.\n');
+  } catch (error) {
+    console.warn('Warning: Could not delete some files:', error.message);
+  }
+}
+
 // Main execution
 async function main() {
   console.log(
     `Starting DNS tests with ${DNS_SERVERS.length} server(s): ${DNS_SERVERS.join(", ")}`,
   );
+
+  // Ask user if they want to delete previous test results
+  const shouldCleanup = await promptCleanup();
+  if (shouldCleanup) {
+    await deletePreviousResults();
+  }
 
   try {
     // Flush local DNS cache before starting tests
