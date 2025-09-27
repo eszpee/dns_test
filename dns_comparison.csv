@@ -1,9 +1,9 @@
-Metric,1.1.1.1,192.168.1.1,192.168.100.1,192.168.100.111,8.8.8.8
-"Domains tested","310","310","310","310","310"
-"Success rate","1.6%","1.6%","1.6%","1.6%","1.6%"
-"Mean response time","0.010 sec","0.015 sec","0.020 sec","0.009 sec","0.007 sec"
-"Median response time","0.008 sec","0.013 sec","0.022 sec","0.008 sec","0.007 sec"
-"Min response time","0.006 sec","0.006 sec","0.006 sec","0.006 sec","0.006 sec"
-"Max response time","0.044 sec","0.072 sec","0.084 sec","0.029 sec","0.012 sec"
-"95th percentile","0.019 sec","0.029 sec","0.035 sec","0.019 sec","0.009 sec"
-"99th percentile","0.030 sec","0.035 sec","0.047 sec","0.024 sec","0.010 sec"
+Metric,1.1.1.1,192.168.1.1,192.168.100.1,192.168.100.111,192.168.100.124,8.8.8.8
+"Domains tested","310","310","310","310","310","310"
+"Success rate","98.4%","98.4%","98.1%","99.7%","97.7%","98.1%"
+"Mean response time","0.083 sec","0.063 sec","0.080 sec","0.050 sec","0.124 sec","0.044 sec"
+"Median response time","0.037 sec","0.029 sec","0.044 sec","0.039 sec","0.070 sec","0.032 sec"
+"Min response time","0.017 sec","0.010 sec","0.010 sec","0.009 sec","0.017 sec","0.011 sec"
+"Max response time","6.059 sec","6.309 sec","3.142 sec","3.066 sec","2.042 sec","0.592 sec"
+"95th percentile","0.225 sec","0.100 sec","0.227 sec","0.057 sec","0.387 sec","0.102 sec"
+"99th percentile","0.544 sec","0.196 sec","0.895 sec","0.062 sec","0.872 sec","0.262 sec"
