@@ -5,7 +5,8 @@
       "Bash(dscacheutil:*)",
       "Bash(scutil:*)",
       "WebSearch",
-      "Bash(dig:*)"
+      "Bash(dig:*)",
+      "Bash(./compare_results.js)"
     ],
     "deny": [],
     "ask": []
