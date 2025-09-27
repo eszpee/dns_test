@@ -79,7 +79,7 @@ async function testDomain(domain, group, dnsServer, resultsFile) {
 
   try {
     const { stdout, stderr } = await execPromise(
-      `dig +short +time=3 +tries=3 +dnssec +nocache @${dnsServer} ${domain}`,
+      `dig +short +time=3 +tries=3 +dnssec @${dnsServer} ${domain}`,
     );
     const result = stdout.trim();
 
@@ -313,6 +313,17 @@ async function main() {
   );
 
   try {
+    // Flush local DNS cache before starting tests
+    console.log("Flushing local DNS cache...");
+    try {
+      await execPromise("sudo dscacheutil -flushcache");
+      await execPromise("sudo killall -HUP mDNSResponder");
+      console.log("DNS cache flushed successfully");
+    } catch (error) {
+      console.warn("Warning: Could not flush DNS cache:", error.message);
+      console.warn("Tests will continue, but cached results may affect accuracy");
+    }
+
     // Load test suite
     const testSuite = yaml.load(fs.readFileSync(YAML_FILE, "utf8"));
 
