@@ -6,16 +6,14 @@ const yaml = require('js-yaml');
 const util = require('util');
 const execPromise = util.promisify(exec);
 
-// Check if DNS server IP is provided
-if (process.argv.length !== 3) {
-  console.log(`Usage: ${process.argv[1]} <dns_server_ip>`);
+// Check if DNS server IP(s) are provided
+if (process.argv.length < 3) {
+  console.log(`Usage: ${process.argv[1]} <dns_server_ip1> [dns_server_ip2] [dns_server_ip3] ...`);
   process.exit(1);
 }
 
-const DNS_SERVER = process.argv[2];
+const DNS_SERVERS = process.argv.slice(2);
 const YAML_FILE = 'test_suite.yaml';
-const RESULTS_FILE = `dns_results_${DNS_SERVER}.csv`;
-const SUMMARY_FILE = `dns_summary_${DNS_SERVER}.txt`;
 
 // Sleep function to add delay between requests
 function sleep(ms) {
@@ -66,10 +64,12 @@ if (!fs.existsSync(YAML_FILE)) {
   process.exit(1);
 }
 
-// Validate DNS server IP
-if (!isValidIP(DNS_SERVER)) {
-  console.error(`Error: Invalid DNS server IP address: ${DNS_SERVER}`);
-  process.exit(1);
+// Validate DNS server IPs
+for (const dnsServer of DNS_SERVERS) {
+  if (!isValidIP(dnsServer)) {
+    console.error(`Error: Invalid DNS server IP address: ${dnsServer}`);
+    process.exit(1);
+  }
 }
 
 
@@ -77,11 +77,11 @@ if (!isValidIP(DNS_SERVER)) {
 
 
 // Run DNS lookup test and measure time
-async function testDomain(domain, group) {
+async function testDomain(domain, group, dnsServer, resultsFile) {
   const startTime = process.hrtime();
 
   try {
-    const { stdout, stderr } = await execPromise(`dig +short +time=2 +tries=1 @${DNS_SERVER} ${domain}`);
+    const { stdout, stderr } = await execPromise(`dig +short +time=2 +tries=1 @${dnsServer} ${domain}`);
     const result = stdout.trim();
 
     const endTime = process.hrtime(startTime);
@@ -98,7 +98,7 @@ async function testDomain(domain, group) {
     }
 
     // Log result to CSV
-    fs.appendFileSync(RESULTS_FILE, `${group},${domain},${responseTime.toFixed(6)},${status},"${result}"\n`);
+    fs.appendFileSync(resultsFile, `${group},${domain},${responseTime.toFixed(6)},${status},"${result}"\n`);
 
     // Don't display individual results during testing to keep progress bar clean
     // Results will be shown in the summary
@@ -112,7 +112,7 @@ async function testDomain(domain, group) {
     const status = group === 'invalid' ? 'OK' : 'ERROR';
 
     // Log error result
-    fs.appendFileSync(RESULTS_FILE, `${group},${domain},${responseTime.toFixed(6)},${status},"${error.message}"\n`);
+    fs.appendFileSync(resultsFile, `${group},${domain},${responseTime.toFixed(6)},${status},"${error.message}"\n`);
     // Don't display individual results during testing to keep progress bar clean
 
     return { domain, responseTime, status, result: error.message };
@@ -120,7 +120,7 @@ async function testDomain(domain, group) {
 }
 
 // Run tests for a group
-async function testGroup(group, domains) {
+async function testGroup(group, domains, dnsServer, resultsFile) {
   console.log(`\nTesting group: ${group}`);
   console.log(); // Extra line for domain display
   const results = [];
@@ -131,7 +131,7 @@ async function testGroup(group, domains) {
     // Show progress with current domain
     displayProgress(i + 1, domains.length, group, domain);
 
-    const result = await testDomain(domain, group);
+    const result = await testDomain(domain, group, dnsServer, resultsFile);
     results.push(result);
 
     // Add 100ms delay between requests (except for the last one)
@@ -160,10 +160,10 @@ function calculatePercentile(sortedArray, percentile) {
 }
 
 // Generate summary statistics
-function generateSummary(allResults) {
+function generateSummary(allResults, dnsServer, summaryFile) {
   console.log('\nGenerating summary statistics...');
 
-  let summaryContent = `DNS Server: ${DNS_SERVER}\n`;
+  let summaryContent = `DNS Server: ${dnsServer}\n`;
   summaryContent += `Test Date: ${new Date().toLocaleString()}\n\n`;
   summaryContent += 'Group Statistics:\n';
 
@@ -257,45 +257,81 @@ function generateSummary(allResults) {
   }
 
   // Save summary to file
-  fs.writeFileSync(SUMMARY_FILE, summaryContent);
+  fs.writeFileSync(summaryFile, summaryContent);
   console.log(summaryContent);
+}
+
+// Test a single DNS server
+async function testSingleDnsServer(dnsServer, testSuite) {
+  const RESULTS_FILE = `dns_results_${dnsServer}.csv`;
+  const SUMMARY_FILE = `dns_summary_${dnsServer}.txt`;
+
+  console.log(`\nStarting DNS tests with server ${dnsServer}`);
+
+  // Initialize results file
+  fs.writeFileSync(RESULTS_FILE, 'group,domain,response_time,status,result\n');
+
+  console.log(`Testing directly against DNS server: ${dnsServer}`);
+
+  // Run tests for each group
+  const allResults = [];
+
+  for (const [group, domains] of Object.entries(testSuite.test_groups)) {
+    const groupResults = await testGroup(group, domains, dnsServer, RESULTS_FILE);
+
+    // Add group name to results
+    groupResults.forEach(result => {
+      result.group = group;
+      allResults.push(result);
+    });
+  }
+
+  // Generate summary
+  generateSummary(allResults, dnsServer, SUMMARY_FILE);
+
+  console.log(`\nTesting completed for ${dnsServer}. Results saved to ${RESULTS_FILE} and ${SUMMARY_FILE}`);
+
+  return { resultsFile: RESULTS_FILE, summaryFile: SUMMARY_FILE };
 }
 
 // Main execution
 async function main() {
-  console.log(`Starting DNS tests with server ${DNS_SERVER}`);
+  console.log(`Starting DNS tests with ${DNS_SERVERS.length} server(s): ${DNS_SERVERS.join(', ')}`);
 
   try {
     // Load test suite
     const testSuite = yaml.load(fs.readFileSync(YAML_FILE, 'utf8'));
 
-    // Initialize results file
-    fs.writeFileSync(RESULTS_FILE, 'group,domain,response_time,status,result\n');
+    const allFiles = [];
 
-    console.log(`Testing directly against DNS server: ${DNS_SERVER}`);
-
-    // Run tests for each group
-    const allResults = [];
-
-    for (const [group, domains] of Object.entries(testSuite.test_groups)) {
-      const groupResults = await testGroup(group, domains);
-
-      // Add group name to results
-      groupResults.forEach(result => {
-        result.group = group;
-        allResults.push(result);
-      });
+    // Test each DNS server
+    for (const dnsServer of DNS_SERVERS) {
+      const files = await testSingleDnsServer(dnsServer, testSuite);
+      allFiles.push(files);
     }
 
-    // Generate summary
-    generateSummary(allResults);
+    // If multiple servers were tested, run comparison
+    if (DNS_SERVERS.length > 1) {
+      console.log('\n' + '='.repeat(60));
+      console.log('Running comparison between DNS servers...');
+      console.log('='.repeat(60));
 
-    console.log(`\nTesting completed. Results saved to ${RESULTS_FILE} and ${SUMMARY_FILE}`);
+      try {
+        const { stdout, stderr } = await execPromise('./compare_results.js');
+        console.log(stdout);
+        if (stderr) {
+          console.error(stderr);
+        }
+      } catch (error) {
+        console.error('Error running comparison script:', error.message);
+        console.log('You can manually run the comparison with: ./compare_results.js');
+      }
+    }
+
+    console.log('\nAll DNS testing completed!');
 
   } catch (error) {
     console.error('Error running DNS tests:', error.message);
-
-
     process.exit(1);
   }
 }
