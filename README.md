@@ -183,4 +183,9 @@ Results exported to dns_comparison.csv
 
 ## Notes
 
-This tool was tested on macOS but might work on other operating systems that have `dig` installed.
+This tool was tested on macOS but should work on other operating systems that have `dig` installed.
+
+### Scripts
+
+- **`dns_test.js`** - Main DNS performance testing tool
+- **`compare_results.js`** - Comparison tool for analyzing multiple DNS server results
