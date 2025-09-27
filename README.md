@@ -1,6 +1,6 @@
-# DNS Performance Test Suite
+# DNS Performance Test
 
-A tool for benchmarking and comparing DNS server performance across various domain types.
+A tool for benchmarking DNS server performance across various domain types.
 
 ## Features
 
