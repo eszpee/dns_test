@@ -197,7 +197,7 @@ Colors are applied based on metric type:
 
 ## Notes
 
-This tool was designed and tested to run on macOS. It uses macOS-specific networking commands (`networksetup`, `dscacheutil`) and may not work on other operating systems without modifications.
+This tool was tested to run on macOS. It probably works on other systems with `dig` too.
 
 ### Scripts
 
