@@ -7,7 +7,7 @@
     "test": "node dns_test.js"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.1"
   },
   "author": "",
   "license": "MIT"
